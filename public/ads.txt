@@ -1,6 +1,7 @@
 # ads.txt — Authorized Digital Sellers
-# Replace pub-XXXXXXXXXXXXXXXX with your real Google AdSense publisher ID.
-# You can find your publisher ID in the AdSense dashboard under Account > Account information.
 #
+# To enable Google AdSense, add a line in the following format (uncomment and replace with your real publisher ID):
+# google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0
+#
+# You can find your publisher ID in the AdSense dashboard under Account > Account information.
 # Format: <SSP Domain>, <Publisher ID>, <Relationship>, <Certification Authority ID>
-google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0

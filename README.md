@@ -119,6 +119,40 @@ public/           Static assets, PWA manifest, icons
 
 ---
 
+## Google AdSense Setup
+
+1. Sign up for [Google AdSense](https://www.google.com/adsense/) and get your publisher ID (format: `pub-XXXXXXXXXXXXXXXX`).
+2. Open `public/ads.txt` and add this line (replacing with your real publisher ID):
+   ```
+   google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0
+   ```
+3. Set the `NEXT_PUBLIC_ADSENSE_ID` environment variable in `.env.local`:
+   ```
+   NEXT_PUBLIC_ADSENSE_ID=pub-XXXXXXXXXXXXXXXX
+   ```
+4. The AdSense script is automatically injected in `src/app/layout.tsx` when `NEXT_PUBLIC_ADSENSE_ID` is set.
+5. To preview ad slot positions in development, set:
+   ```
+   NEXT_PUBLIC_SHOW_AD_PLACEHOLDERS=true
+   ```
+
+---
+
+## Google Search Console Setup
+
+1. Go to [Google Search Console](https://search.google.com/search-console/) and add your property.
+2. Choose the **URL prefix** method with `https://onlinecopypaste.net`.
+3. Verify ownership using the **HTML tag** method: copy the `content` value from the meta tag Google provides.
+4. Add the verification meta tag to `src/app/layout.tsx` inside the `metadata` object:
+   ```ts
+   verification: {
+     google: 'YOUR_VERIFICATION_CODE',
+   },
+   ```
+5. Once verified, submit your sitemap at `https://onlinecopypaste.net/sitemap.xml` via the Search Console dashboard.
+
+---
+
 ## License
 
 MIT

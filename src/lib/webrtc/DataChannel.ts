@@ -2,6 +2,7 @@
 // by tsconfig.server.json.
 
 import type { FileMeta, TransferStatus, ContentType } from '@/types/index';
+import { sanitizeFilename } from '@/lib/file-utils';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -219,7 +220,7 @@ export class DataChannelManager {
     if (msgType === 'file-meta') {
       const meta: FileMeta = {
         transferId: msg.transferId as string,
-        name: msg.name as string,
+        name: sanitizeFilename(msg.name as string),
         size: msg.size as number,
         mimeType: msg.mimeType as string,
         totalChunks: msg.totalChunks as number,

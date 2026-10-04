@@ -32,7 +32,7 @@ const MODE_TOOLTIPS: Record<ConnectionMode, string> = {
   local:
     'You are on a local network only. P2P transfers may still work if both devices are on the same Wi-Fi/LAN. Internet signaling is unavailable.',
   offline:
-    'No network connection detected. Transfer between devices requires at least a shared local network.',
+    'No network connection — a shared network (Wi-Fi, LAN, or internet) is required to pair devices. Completely offline transfer is not possible without a network.',
 };
 
 // ---------------------------------------------------------------------------

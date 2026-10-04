@@ -40,16 +40,23 @@ class SessionStore {
     return session;
   }
 
-  /** Retrieve a session by its ID. Returns undefined if not found. */
+  /** Retrieve a session by its ID. Returns undefined if not found or expired. */
   get(id: string): ServerSession | undefined {
-    return this.sessions.get(id);
+    const session = this.sessions.get(id);
+    if (!session) return undefined;
+    if (session.expiresAt <= new Date() || session.status === 'destroyed') {
+      this.pairCodes.delete(session.pairCode);
+      this.sessions.delete(id);
+      return undefined;
+    }
+    return session;
   }
 
-  /** Retrieve a session by its 6-digit pair code. */
+  /** Retrieve a session by its 6-digit pair code. Returns undefined if not found or expired. */
   getByPairCode(code: string): ServerSession | undefined {
     const id = this.pairCodes.get(code);
     if (!id) return undefined;
-    return this.sessions.get(id);
+    return this.get(id);
   }
 
   /** Partially update a session by ID. */
