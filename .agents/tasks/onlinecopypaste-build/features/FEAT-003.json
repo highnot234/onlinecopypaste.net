@@ -2,7 +2,7 @@
   "id": "FEAT-003",
   "type": "feat",
   "description": "WebRTC layer and React hooks: the four custom hooks (useWebRTC, useSession, useConnectionStatus, useTransferQueue) plus the transfer UI components (TransferProgress, FilePreview, DropZone). These are all 'use client' browser-only modules. Depends on FEAT-001 (types, webrtc lib) and FEAT-002 (API routes for session creation). FEAT-004 (pages/workspace components) depends on these hooks.",
-  "status": "pending",
+  "status": "completed",
   "steps": [
     "Create src/hooks/useConnectionStatus.ts — 'use client'. Tracks connection mode (ONLINE | LOCAL | OFFLINE) and WebSocket readyState. Uses navigator.onLine for baseline, attempts to reach /api/health to confirm online status, falls back to LOCAL if health check fails but WebSocket connects on LAN IP. Exports { mode: ConnectionMode, isOnline: boolean, wsConnected: boolean }. Updates on window online/offline events.",
     "Create src/hooks/useSession.ts — 'use client'. Manages session lifecycle: createSession(durationMinutes) calls POST /api/session/create, stores { sessionId, token, pairCode, pairCodeFormatted, qrDataUrl, expiresAt } in sessionStorage (key: 'ocp_session'), destroySession() calls POST /api/session/destroy + clears sessionStorage + calls wsRef.send destroy message, joinSession(code) resolves session by pairCode. Returns { session, isLoading, error, createSession, destroySession, joinSession, sessionStatus }. On mount, restore session from sessionStorage if not expired.",
@@ -26,5 +26,5 @@
     "npm run build — Next.js build succeeds (this validates all 'use client' boundaries are correct)"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 7 files created successfully. npm run type-check passes with zero errors. npm run build succeeds and generates public/sw.js (PWA service worker). npm test passes 88 tests (all pre-existing from FEAT-001/002). Key notes: (1) useWebRTC uses dynamic import() inside createPeerConnection callback (which itself only runs inside useEffect) — RTCPeerConnection is never touched at module level, satisfying SSR safety. (2) ICE candidates are queued in iceCandidateQueueRef before remote description is set, then flushed atomically after setRemoteDescription. (3) WebSocket reconnects up to 3 times with 2^attempt * 2000ms exponential backoff — for both WS close events and peer-disconnected messages. (4) useSession stores session under 'ocp_session' in sessionStorage and restores on mount if not expired. (5) DropZone validates MIME types via isAllowedMimeType() and file size against MAX_FILE_SIZE_MB (env var, default 100MB). Accessible via role=button, aria-label, keyboard Enter/Space. (6) FilePreview imports only 5 Prism languages (javascript, typescript, python, css, json). (7) Side fix: next.config.ts was renamed/converted to next.config.js since Next.js 14.2.18 does not support next.config.ts. The NetworkOnly rule for /api/* was added as the first runtimeCaching entry per plan.md recommendation."
 }
