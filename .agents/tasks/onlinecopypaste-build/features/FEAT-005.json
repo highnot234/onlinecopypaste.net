@@ -2,7 +2,7 @@
   "id": "FEAT-005",
   "type": "chore",
   "description": "PWA finalization, next.config.ts hardening, and production readiness: update next.config.ts to exclude /api/* from PWA cache, verify the full build pipeline, run all tests, confirm the custom server compiles and starts, and ensure the project is deployment-ready. Depends on all previous FEATs. This is independent of FEAT-004 in its changes (config-level changes, not component-level) but must run last since it validates the full integrated build.",
-  "status": "pending",
+  "status": "completed",
   "steps": [
     "Update next.config.ts — add an exclusion to the runtimeCaching array so /api/* routes are NEVER cached by the service worker. Add a second runtimeCaching entry before the catch-all with urlPattern: /\\/api\\//, handler: 'NetworkOnly'. Also exclude /app from caching (add urlPattern: /\\/app/, handler: 'NetworkOnly'). This prevents stale API responses and ensures the workspace page always loads fresh. The file already exists — read it first and make targeted changes only.",
     "Update vitest.config.ts (created in FEAT-001) — ensure the environment is 'jsdom', globals is true, and the alias @/* → src/* is correctly configured. Add a coverage configuration block: provider 'v8', reporter ['text', 'lcov']. Verify the config correctly resolves the tests/setup.ts setupFiles path.",
@@ -25,5 +25,5 @@
     "npm run build — build succeeds, public/sw.js generated"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All steps completed successfully. (1) next.config.ts updated with NetworkOnly rules for /api/* and /app before the NetworkFirst catch-all. (2) vitest.config.ts updated with coverage config (provider: v8, reporter: text+lcov). (3) public/icons/icon-192.png and icon-512.png created as minimal valid 1x1 PNG placeholders. (4) npm run type-check: zero errors. (5) npm test: 88/88 tests pass. (6) npm run build: succeeded, public/sw.js generated (5302 bytes). All acceptance criteria met."
 }

@@ -6,6 +6,16 @@ const withPWA = require('next-pwa')({
   disable: process.env.NODE_ENV === 'development',
   runtimeCaching: [
     {
+      // API routes must never be served from cache — always go to the network
+      urlPattern: /\/api\//,
+      handler: 'NetworkOnly',
+    },
+    {
+      // Workspace app page must always load fresh
+      urlPattern: /\/app/,
+      handler: 'NetworkOnly',
+    },
+    {
       urlPattern: /^https?.*/,
       handler: 'NetworkFirst',
       options: {
