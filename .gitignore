@@ -1,0 +1,12 @@
+.env.local
+.env.*.local
+.next/
+.server-build/
+node_modules/
+out/
+*.log
+.DS_Store
+Thumb.db
+public/sw.js
+public/workbox-*.js
+public/worker-*.js
