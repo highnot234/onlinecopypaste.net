@@ -109,7 +109,11 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-10 border-t border-slate-800 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-          <p>© {year} OnlineCopyPaste.net — All rights reserved.</p>
+          {/* suppressHydrationWarning is intentional: new Date().getFullYear() is
+              a render-time call that is identical on server and client within the
+              same calendar year, but React flags any render-time Date call. We
+              suppress only this single span, not the whole component. */}
+          <p>© <span suppressHydrationWarning>{year}</span> OnlineCopyPaste.net — All rights reserved.</p>
           <p>
             No account. No tracking. No permanent storage.
           </p>
