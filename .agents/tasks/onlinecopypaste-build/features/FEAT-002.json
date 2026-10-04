@@ -1,0 +1,32 @@
+{
+  "id": "FEAT-002",
+  "type": "feat",
+  "description": "Server + Session API: custom Next.js HTTP+WebSocket server (server.ts), all four API route handlers, and the corresponding unit/integration tests. Depends on FEAT-001 (uses SessionStore, session utils, rate-limiter types). This is the signaling backbone — FEAT-003 (WebRTC hooks) depends on the WebSocket protocol established here.",
+  "status": "pending",
+  "steps": [
+    "Create server.ts at project root (compiled with tsconfig.server.json = CommonJS). Structure: (1) Import http, next, ws.WebSocketServer, uuid, and lib modules using require() or CommonJS imports. (2) Create Next.js app with next({ dev, hostname, port }). (3) Create http.Server that delegates to Next.js handler. (4) Attach ws.WebSocketServer to the http server. (5) On WebSocket connection: extract IP from req.headers['x-forwarded-for'] or socket.remoteAddress, check wsRateLimiter, send error and close if rate limited. (6) Implement message handler for all WSMessage types: 'join' creates/joins session and registers peer as pc or phone, 'paired' notification when both devices connected, 'offer'/'answer'/'ice-candidate' relay to the other peer in the session, 'destroy' calls SessionStore.destroy and notifies all peers, 'ping' replies with pong. (7) On WebSocket close: update session peer status, notify remaining peer with 'peer-disconnected'. (8) Start http server on PORT env var (default 3000). Include heartbeat ping every 30 seconds to detect dead connections. Handle all errors gracefully — never crash the process on a single bad message.",
+    "Create src/app/api/session/create/route.ts — POST handler (Next.js App Router route). Body: { durationMinutes?: number (default 30, max 60), role?: 'pc'|'phone' }. Rate-limit by IP using the default rateLimiter. Create session via SessionStore.create(). Generate JWT token signed with SESSION_SECRET containing { sessionId, role, iat }. Generate QR code data URL using qrcode.toDataURL() for the join URL (NEXT_PUBLIC_APP_URL + '/join/' + pairCode). Return JSON: { sessionId, pairCode, pairCodeFormatted, qrDataUrl, token, expiresAt, joinUrl }. Return 429 if rate limited, 400 for invalid input.",
+    "Create src/app/api/session/destroy/route.ts — POST handler. Body: { sessionId: string }. Verify JWT from Authorization header. Destroy session via SessionStore.destroy(). Return 200 { destroyed: true } or 404 if not found. No auth bypass — token must match session.",
+    "Create src/app/api/session/status/route.ts — GET handler. Query param: sessionId. Verify JWT from Authorization header. Return { status, deviceCount, createdAt, expiresAt, peerCount } or 404. Do not return IP addresses or internal session data.",
+    "Create src/app/api/health/route.ts — GET handler, no auth. Return { status: 'ok', timestamp, activeSessions: SessionStore.size, version: '1.0.0' }.",
+    "Create tests/unit/session.test.ts — Vitest tests for: generateSessionId() returns valid UUID v4 format, generatePairCode() returns 6-digit string, formatPairCode() formats correctly, SessionStore.create() creates a session with correct fields, SessionStore.get() returns by id, SessionStore.getByPairCode() returns by code, SessionStore.destroy() removes session, expired sessions are cleaned up by cleanup(). Mock Date for expiry tests.",
+    "Create tests/unit/rate-limiter.test.ts — Vitest tests for: check() returns true under limit, check() returns false at limit, check() resets after window expires (use fake timers), reset() clears state.",
+    "Create tests/integration/api.test.ts — Vitest integration tests using fetch against the Next.js API routes. Test: POST /api/session/create returns 200 with sessionId/pairCode/qrDataUrl, POST /api/session/destroy with valid token returns destroyed:true, GET /api/session/status with valid token returns correct status, GET /api/health returns ok. Use node-fetch or built-in fetch. Note: these tests require the server running OR mock the SessionStore — prefer mocking SessionStore with vi.mock() for isolation.",
+    "Create tests/unit/content-detection.test.ts — Vitest tests for: detectContentType('https://example.com') === 'url', detectContentType('{\"a\":1}') === 'json', detectContentType('const x = 1') === 'code', detectContentType('hello world') === 'text'. Test detectLanguage heuristics.",
+    "Create tests/unit/file-utils.test.ts — Vitest tests for: sanitizeFilename strips '../' and null bytes, isAllowedMimeType('image/png') === true, isAllowedMimeType('application/x-executable') === false, formatFileSize formats bytes/KB/MB correctly."
+  ],
+  "acceptance_criteria": [
+    "server.ts compiles without errors via: npx ts-node --project tsconfig.server.json server.ts --version (dry compile check)",
+    "All WebSocket message types (join, offer, answer, ice-candidate, destroy, ping) have handlers in server.ts",
+    "POST /api/session/create returns a response with sessionId, pairCode, qrDataUrl, and token fields",
+    "POST /api/session/destroy validates JWT and removes the session",
+    "All tests in tests/unit/ and tests/integration/ pass",
+    "npm run type-check passes"
+  ],
+  "verification": [
+    "npm run type-check — zero errors",
+    "npm test -- tests/unit/session.test.ts tests/unit/rate-limiter.test.ts tests/unit/content-detection.test.ts tests/unit/file-utils.test.ts tests/integration/api.test.ts — all pass"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}

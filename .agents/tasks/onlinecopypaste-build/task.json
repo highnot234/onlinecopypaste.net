@@ -1,0 +1,7 @@
+{
+  "task_id": "task-onlinecopypaste-build",
+  "task_description": "Build OnlineCopyPaste.net — a production-ready, account-free, session-based P2P file/text transfer web app using Next.js 14, WebSocket signaling, WebRTC DataChannels, PWA, and AdSense-ready ad slots. No database; in-memory session store.",
+  "status": "pending",
+  "feature_order": ["FEAT-001", "FEAT-002", "FEAT-003", "FEAT-004", "FEAT-005"],
+  "blocked_reason": null
+}

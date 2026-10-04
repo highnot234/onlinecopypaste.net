@@ -1,0 +1,30 @@
+{
+  "id": "FEAT-003",
+  "type": "feat",
+  "description": "WebRTC layer and React hooks: the four custom hooks (useWebRTC, useSession, useConnectionStatus, useTransferQueue) plus the transfer UI components (TransferProgress, FilePreview, DropZone). These are all 'use client' browser-only modules. Depends on FEAT-001 (types, webrtc lib) and FEAT-002 (API routes for session creation). FEAT-004 (pages/workspace components) depends on these hooks.",
+  "status": "pending",
+  "steps": [
+    "Create src/hooks/useConnectionStatus.ts — 'use client'. Tracks connection mode (ONLINE | LOCAL | OFFLINE) and WebSocket readyState. Uses navigator.onLine for baseline, attempts to reach /api/health to confirm online status, falls back to LOCAL if health check fails but WebSocket connects on LAN IP. Exports { mode: ConnectionMode, isOnline: boolean, wsConnected: boolean }. Updates on window online/offline events.",
+    "Create src/hooks/useSession.ts — 'use client'. Manages session lifecycle: createSession(durationMinutes) calls POST /api/session/create, stores { sessionId, token, pairCode, pairCodeFormatted, qrDataUrl, expiresAt } in sessionStorage (key: 'ocp_session'), destroySession() calls POST /api/session/destroy + clears sessionStorage + calls wsRef.send destroy message, joinSession(code) resolves session by pairCode. Returns { session, isLoading, error, createSession, destroySession, joinSession, sessionStatus }. On mount, restore session from sessionStorage if not expired.",
+    "Create src/hooks/useWebRTC.ts — 'use client'. Core hook. Manages WebSocket signaling connection and RTCPeerConnection. Parameters: { sessionId, token, role: 'pc'|'phone' }. (1) Opens WebSocket to NEXT_PUBLIC_WS_URL on mount, sends 'join' message. (2) On 'paired' message, initiates WebRTC handshake: PC role creates offer, phone role waits for offer then creates answer. (3) Relays offer/answer/ice-candidate via WebSocket. (4) On DataChannel open, sets isConnected=true. (5) Handles peer-disconnected: attempts reconnect up to 3 times with 2s backoff. (6) On unmount, closes WebSocket and PeerConnection. Returns { isConnected, isPaired, send(data: string|ArrayBuffer), onMessage(handler), connectionState, reconnecting }. Uses PeerConnection and DataChannel classes from src/lib/webrtc/. CRITICAL: never instantiate RTCPeerConnection at module level — only inside useEffect after mount.",
+    "Create src/hooks/useTransferQueue.ts — 'use client'. Manages the queue of pending/active/completed transfers. State: transfers: Map<string, TransferState>. Methods: enqueue(file: File, sendFn): void — generates transferId (uuid v4), adds to queue, starts sending via DataChannel. updateProgress(transferId, bytesTransferred): void. complete(transferId): void. cancel(transferId): void. receiveFileMeta(meta: FileMeta): void. receiveChunk(header, data): void — buffers chunks, assembles when complete, creates object URL for download. Returns { transfers, enqueue, cancel, activeCount }.",
+    "Create src/components/transfer/TransferProgress.tsx — 'use client'. Displays a transfer item: filename, size, progress bar (percentage), speed (bytes/sec), cancel button (if sending), download button (if received and complete), status badge (queued/sending/receiving/complete/failed/cancelled). Props: transfer: TransferState, onCancel: (id: string) => void. Use Tailwind for styling — progress bar should animate smoothly.",
+    "Create src/components/transfer/FilePreview.tsx — 'use client'. Renders file preview based on MIME type: images → <img> with object URL, PDFs → <iframe> or <object> with object URL, text/* → <pre> with content, code → Prism.js syntax highlighted block (import prismjs and specific language component — only javascript, typescript, python, css, json to keep bundle small), URLs → <a> with external link icon, JSON → formatted <pre>. Props: file: { name: string, mimeType: string, url: string, content?: string }. Falls back to generic file icon + download link for unsupported types.",
+    "Create src/components/transfer/DropZone.tsx — 'use client'. Full drag-and-drop file upload area. States: idle, dragover, uploading. On drop: validates file size (MAX_FILE_SIZE_MB from env, default 100MB), validates MIME type via isAllowedMimeType(), calls onFilesSelected(files: File[]). Also renders a hidden <input type='file' multiple> triggered by click. Shows allowed file types and size limit. Props: onFilesSelected: (files: File[]) => void, disabled?: boolean. Accessible: role='button', aria-label, keyboard handler for Enter/Space."
+  ],
+  "acceptance_criteria": [
+    "useWebRTC hook never references RTCPeerConnection outside of useEffect (browser-only safety)",
+    "useSession restores session from sessionStorage on mount if not expired",
+    "TransferProgress renders a progress bar and cancel/download buttons correctly",
+    "DropZone accepts drag-and-drop and rejects files exceeding MAX_FILE_SIZE_MB",
+    "FilePreview renders images as <img>, PDFs as <iframe>, and code with syntax highlighting",
+    "npm run type-check passes after this FEAT",
+    "npm run build completes without errors"
+  ],
+  "verification": [
+    "npm run type-check — zero errors",
+    "npm run build — Next.js build succeeds (this validates all 'use client' boundaries are correct)"
+  ],
+  "blocked_reason": null,
+  "findings": ""
+}
