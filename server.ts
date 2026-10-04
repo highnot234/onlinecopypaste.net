@@ -16,6 +16,15 @@ import type { IncomingMessage } from 'http';
 const PORT = parseInt(process.env.PORT ?? '3000', 10);
 const dev = process.env.NODE_ENV !== 'production';
 
+// ---------------------------------------------------------------------------
+// Production safety: refuse to start without a real SESSION_SECRET
+// ---------------------------------------------------------------------------
+if (!dev && !process.env.SESSION_SECRET) {
+  console.error('[FATAL] SESSION_SECRET environment variable is not set in production.');
+  console.error('[FATAL] Set a strong random secret (32+ characters) before deploying.');
+  process.exit(1);
+}
+
 function getSessionSecret(): string {
   return process.env.SESSION_SECRET ?? 'dev-secret-change-in-production-32c';
 }

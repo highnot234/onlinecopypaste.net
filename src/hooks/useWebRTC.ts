@@ -23,6 +23,7 @@ export interface UseWebRTCResult {
   reconnecting: boolean;
   wsRef: React.MutableRefObject<WebSocket | null>;
   send: (data: string | ArrayBuffer) => void;
+  sendFile: (file: File, transferId: string) => Promise<void>;
   onMessage: (handler: (data: string | ArrayBuffer) => void) => void;
 }
 
@@ -433,6 +434,15 @@ export function useWebRTC({
     messageHandlerRef.current = handler;
   }, []);
 
+  /**
+   * Send a file over the DataChannel using the binary chunking protocol.
+   * Delegates to DataChannelManager.sendFileMeta() which streams all chunks.
+   */
+  const sendFile = useCallback(async (file: File, transferId: string): Promise<void> => {
+    if (!dcManagerRef.current) return;
+    await dcManagerRef.current.sendFileMeta(file, transferId);
+  }, []);
+
   return {
     isConnected,
     isPaired,
@@ -440,6 +450,7 @@ export function useWebRTC({
     reconnecting,
     wsRef,
     send,
+    sendFile,
     onMessage,
   };
 }

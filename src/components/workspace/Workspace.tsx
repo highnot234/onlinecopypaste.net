@@ -80,7 +80,7 @@ export default function Workspace() {
     }
   }, [sessionId, token, router]);
 
-  const { isConnected, isPaired, reconnecting, send, onMessage } = useWebRTC({
+  const { isConnected, isPaired, reconnecting, send, sendFile, onMessage } = useWebRTC({
     sessionId,
     token,
     role,
@@ -192,27 +192,15 @@ export default function Workspace() {
 
   const sendFiles = useCallback(
     (files: File[]) => {
-      // File sending is handled via DataChannel binary protocol in DataChannel.ts
-      // Here we enqueue and call the DataChannel send method
       for (const file of files) {
         enqueue(file, async (_file, _transferId) => {
-          // The actual sending is handled by the DataChannelManager
-          // which is invoked internally by useWebRTC's send() with ArrayBuffer data
-          // For now we signal the file send intent through the send() wrapper
-          send(
-            JSON.stringify({
-              type: 'file-meta',
-              transferId: _transferId,
-              name: _file.name,
-              size: _file.size,
-              mimeType: _file.type || 'application/octet-stream',
-              totalChunks: Math.ceil(_file.size / 65_536),
-            }),
-          );
+          // Delegate to DataChannelManager.sendFileMeta() which sends the JSON
+          // metadata header followed by all binary chunks over the DataChannel.
+          await sendFile(_file, _transferId);
         });
       }
     },
-    [enqueue, send],
+    [enqueue, sendFile],
   );
 
   const handleCancelTransfer = useCallback(
