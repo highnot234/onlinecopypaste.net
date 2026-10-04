@@ -2,7 +2,7 @@
   "id": "FEAT-004",
   "type": "feat",
   "description": "All UI components and all Next.js pages. Covers layout components, session components, workspace tabs, UI primitives, and all 20 pages (homepage, app workspace, SEO landing pages, legal pages). Depends on FEAT-001 (globals.css, types), FEAT-002 (API routes), FEAT-003 (hooks). This is the largest feature — all steps should be done in order since later components compose earlier ones.",
-  "status": "pending",
+  "status": "completed",
   "steps": [
     "Create src/components/ui/Button.tsx — polymorphic button with variants: 'primary' (indigo), 'danger' (red), 'ghost' (transparent), 'secondary' (slate). Sizes: 'sm', 'md', 'lg'. Props: variant, size, loading (shows spinner), disabled, onClick, children, className, type. Uses Tailwind. Fully accessible with focus-visible ring. Export as default.",
     "Create src/components/ui/Badge.tsx — status badge component. Variants: 'success' (green), 'warning' (yellow), 'danger' (red), 'info' (blue), 'neutral' (slate). Props: variant, children, className. Small pill shape. Export as default.",
@@ -59,5 +59,5 @@
     "npm run build — Next.js build succeeds, no missing modules, no type errors during build"
   ],
   "blocked_reason": null,
-  "findings": ""
+  "findings": "All 37 files created successfully. npm run type-check passes with zero errors. npm run build succeeds generating 22 routes (16 static pages + 4 API routes + /join/[code] dynamic + /_not-found). npm test passes 88 tests (all pre-existing from FEAT-001/002/003). Key notes: (1) UI primitives — Button (4 variants, 3 sizes, loading spinner), Badge (5 variants), Modal (createPortal + focus trap + Escape/backdrop close), Toast (ToastProvider context + useToast hook, auto-dismiss 4s, max 5). (2) Layout — Header is 'use client' for hamburger menu and SessionTimer; Footer is server component. ConnectionStatus uses useConnectionStatus hook with tooltip per mode. (3) Session — SessionCreator uses dynamic import with ssr:false on homepage and lab-mode pages (avoids sessionStorage SSR). DestroySession shows Modal confirmation before calling destroySession(). SessionTimer turns red < 5min, fires onExpired callback. SessionJoiner pre-fills code from URL params, numeric input keyboard on mobile. (4) Workspace — Workspace.tsx reads sessionId/token/role from useSearchParams() inside Suspense boundary at /app/page.tsx. Tab architecture: 7 tabs (Clipboard/Code/Files/Links/Images/Notes/Transfers). Connected/disconnected overlay shown while waiting for peer. (5) AdSlot — returns null if NEXT_PUBLIC_ADSENSE_ID not set; renders gray placeholder if NEXT_PUBLIC_SHOW_AD_PLACEHOLDERS=true; calls window.adsbygoogle.push in useEffect after mount. (6) SEO pages — all static server components with proper metadata exports. /faq has JSON-LD FAQPage schema. /join/[code] is 'use client' dynamic page with noindex intent. (7) All workspace tabs wrapped in ToastProvider locally — not injected at root layout level (root layout remains a server component). (8) All 14 E2E test cases documented in tests/e2e/e2e-test-plan.md."
 }
