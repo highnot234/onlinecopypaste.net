@@ -1,30 +1,14 @@
 'use client';
 
 import React, { Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
 import { ToastProvider } from '@/components/ui/Toast';
 import Workspace from '@/components/workspace/Workspace';
 
 // ---------------------------------------------------------------------------
-// Inner component — reads searchParams
+// Inner component — reads role from searchParams only
 // ---------------------------------------------------------------------------
 
 function WorkspacePage() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-
-  const sessionId = searchParams.get('sessionId');
-  const token = searchParams.get('token');
-
-  useEffect(() => {
-    if (!sessionId || !token) {
-      router.push('/');
-    }
-  }, [sessionId, token, router]);
-
-  if (!sessionId || !token) return null;
-
   return (
     <ToastProvider>
       <Workspace />

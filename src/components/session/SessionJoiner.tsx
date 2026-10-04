@@ -60,9 +60,9 @@ export default function SessionJoiner({ initialCode = '' }: SessionJoinerProps) 
     if (rawCode.length !== 6) return;
     const result = await joinSession(rawCode);
     if (result) {
-      router.push(
-        `/app?sessionId=${result.sessionId}&token=${result.token}&role=phone`,
-      );
+      // Session data is already in sessionStorage (saved by useSession.joinSession).
+      // Navigate with only the role — no sensitive token in the URL.
+      router.push('/app?role=phone');
     }
   };
 

@@ -8,7 +8,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import { verify as jwtVerify } from 'jsonwebtoken';
 import sessionStore, { hashToken } from './src/lib/session/SessionStore';
-import { wsRateLimiter } from './src/lib/rate-limiter';
+import rateLimiter, { wsRateLimiter } from './src/lib/rate-limiter';
 import type { WSMessage, PeerRole } from './src/types/index';
 import type { ServerSession } from './src/lib/session/types';
 import type { IncomingMessage } from 'http';
@@ -248,10 +248,11 @@ app.prepare().then(() => {
       return;
     }
 
-    // Validate token hash if set
-    if (session.tokenHash) {
+    // Validate token hash if set — each role has its own hash
+    const expectedHash = role === 'phone' ? session.phoneTokenHash : session.tokenHash;
+    if (expectedHash) {
       const incoming = hashToken(token);
-      if (incoming !== session.tokenHash) {
+      if (incoming !== expectedHash) {
         sendError(ws, sessionId, 'INVALID_TOKEN', 'Token does not match session record.');
         return;
       }
@@ -399,6 +400,12 @@ app.prepare().then(() => {
     console.log(`> WebSocket signaling at ws://localhost:${PORT}/ws`);
     console.log(`> Mode: ${dev ? 'development' : 'production'}`);
   });
+
+  // Periodically prune rate-limiter maps to prevent unbounded memory growth.
+  setInterval(() => {
+    rateLimiter.cleanup();
+    wsRateLimiter.cleanup();
+  }, 60_000);
 
   server.on('error', (err) => {
     console.error('[HTTP] Server error:', err);

@@ -57,9 +57,9 @@ export default function SessionCreator({ onSessionCreated }: SessionCreatorProps
   const handleGoToWorkspace = () => {
     if (!session) return;
     onSessionCreated?.(session.sessionId, session.token);
-    router.push(
-      `/app?sessionId=${session.sessionId}&token=${session.token}&role=pc`,
-    );
+    // Session data is already in sessionStorage (saved by useSession.createSession).
+    // Navigate with only the role — no sensitive token in the URL.
+    router.push('/app?role=pc');
   };
 
   const joinUrl = session

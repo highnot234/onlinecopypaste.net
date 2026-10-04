@@ -51,15 +51,14 @@ interface ReceivedContent {
 
 /**
  * Main workspace shell rendered at /app.
- * Reads sessionId, token, role from URL search params.
+ * Reads sessionId and token from sessionStorage (via useSession).
+ * The role is passed in the URL (?role=pc|phone) but no sensitive token appears in the URL.
  * Manages WebRTC + transfer queue.
  */
 export default function Workspace() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const sessionId = searchParams.get('sessionId') ?? '';
-  const token = searchParams.get('token') ?? '';
   const role = (searchParams.get('role') ?? 'pc') as PeerRole;
 
   const [activeTab, setActiveTab] = useState<TabId>('clipboard');
@@ -73,7 +72,11 @@ export default function Workspace() {
 
   const { session } = useSession();
 
-  // Redirect to home if no session
+  // Read sessionId and token from sessionStorage (via useSession) — never from URL
+  const sessionId = session?.sessionId ?? '';
+  const token = session?.token ?? '';
+
+  // Redirect to home if no session in storage
   useEffect(() => {
     if (!sessionId || !token) {
       router.push('/');

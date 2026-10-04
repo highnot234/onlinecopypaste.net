@@ -7,8 +7,10 @@ import type { SessionStatus } from '@/types/index';
 export interface ServerSession {
   id: string;
   pairCode: string;
-  /** sha256 hex of the JWT token issued at creation */
+  /** sha256 hex of the PC's JWT token issued at creation */
   tokenHash: string;
+  /** sha256 hex of the phone's JWT token issued at join */
+  phoneTokenHash?: string;
   createdAt: Date;
   expiresAt: Date;
   status: SessionStatus;

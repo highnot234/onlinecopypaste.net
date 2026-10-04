@@ -212,11 +212,11 @@ export function useSession(
     const normalizedCode = code.replace(/\s/g, '').padStart(6, '0');
 
     try {
-      // Join as 'phone' role using the pair code
-      const response = await fetch('/api/session/create', {
+      // Join as 'phone' role using the pair code — uses the dedicated join endpoint
+      const response = await fetch('/api/session/join', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pairCode: normalizedCode, role: 'phone' }),
+        body: JSON.stringify({ pairCode: normalizedCode }),
       });
 
       if (!response.ok) {
