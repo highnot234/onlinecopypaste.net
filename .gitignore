@@ -10,3 +10,8 @@ Thumb.db
 public/sw.js
 public/workbox-*.js
 public/worker-*.js
+
+# Cloudflare / OpenNext build output
+.open-next/
+cloudflare-env.d.ts
+.wrangler/

@@ -1,0 +1,60 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+
+  // Worker name — must match the Cloudflare dashboard / custom domain route
+  "name": "onlinecopypaste",
+
+  // Entry point is the OpenNext-generated worker bundle.
+  // opennextjs-cloudflare build produces .open-next/worker.js which
+  // already incorporates our src/worker.ts via open-next.config.ts.
+  "main": ".open-next/worker.js",
+
+  // Compatibility date controls which Cloudflare runtime APIs are available.
+  "compatibility_date": "2025-09-01",
+
+  // nodejs_compat: enables Node.js built-ins (crypto, etc.) in the Worker runtime.
+  // global_fetch_strictly_public: hardens fetch() security.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+
+  // Static assets served by Cloudflare's Assets binding (replaces Workers Sites).
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  // Self-reference service binding for OpenNext caching support.
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "onlinecopypaste"
+    }
+  ],
+
+  // Durable Object binding — SignalingRoom owns all session state + WebSocket signaling.
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SIGNALING_ROOM",
+        "class_name": "SignalingRoom"
+      }
+    ]
+  },
+
+  // Migration: create the SignalingRoom class on first deploy.
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["SignalingRoom"]
+    }
+  ],
+
+  // Environment variables that are safe to commit (non-secret).
+  // Secrets (SESSION_SECRET) must be added via:
+  //   wrangler secret put SESSION_SECRET
+  "vars": {
+    "NEXT_PUBLIC_APP_URL": "https://onlinecopypaste.net",
+    "NEXT_PUBLIC_WS_URL": "wss://onlinecopypaste.net/ws",
+    "MAX_SESSION_MINUTES": "60",
+    "MAX_FILE_SIZE_MB": "100"
+  }
+}

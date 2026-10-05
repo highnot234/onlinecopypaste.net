@@ -1,14 +1,9 @@
 // GET /api/session/status?sessionId=<id>
 // Returns current session status. Requires a valid Authorization: Bearer <token> header.
-// Does NOT expose IP addresses or raw peer WebSocket objects.
+// Works in both Cloudflare Workers (DO-backed) and local Node dev (in-memory).
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verify as jwtVerify } from 'jsonwebtoken';
-import sessionStore from '@/lib/session/SessionStore';
-
-function getSessionSecret(): string {
-  return process.env.SESSION_SECRET ?? 'dev-secret-change-in-production-32c';
-}
+import { adapterGet, adapterVerifyToken } from '@/lib/session/adapter';
 
 function getToken(req: NextRequest): string | null {
   const auth = req.headers.get('authorization');
@@ -30,36 +25,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'sessionId query parameter is required.' }, { status: 400 });
   }
 
-  // Verify JWT
-  let decoded: { sessionId: string; role: string };
-  try {
-    decoded = jwtVerify(token, getSessionSecret()) as { sessionId: string; role: string };
-  } catch {
+  const decoded = await adapterVerifyToken(token);
+  if (!decoded) {
     return NextResponse.json({ error: 'Invalid or expired token.' }, { status: 401 });
   }
-
-  // Token must match the requested session
   if (decoded.sessionId !== sessionId) {
-    return NextResponse.json(
-      { error: 'Token does not match the requested session.' },
-      { status: 403 },
-    );
+    return NextResponse.json({ error: 'Token does not match the requested session.' }, { status: 403 });
   }
 
-  // Look up session
-  const session = sessionStore.get(sessionId);
+  const session = await adapterGet(sessionId);
   if (!session) {
     return NextResponse.json({ error: 'Session not found.' }, { status: 404 });
   }
 
-  // Count peers safely (do not expose WebSocket objects or IP addresses)
-  const peerCount = Object.keys(session.peers).length;
-
   return NextResponse.json({
     status: session.status,
     deviceCount: session.deviceCount,
-    peerCount,
-    createdAt: session.createdAt.toISOString(),
-    expiresAt: session.expiresAt.toISOString(),
+    peerCount: session.deviceCount,
+    createdAt: session.createdAt,
+    expiresAt: session.expiresAt,
   });
 }

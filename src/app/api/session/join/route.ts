@@ -1,16 +1,11 @@
 // POST /api/session/join
-// Joins an existing session by its 6-digit pair code. Returns a phone-role JWT
-// for the matched session. This is the correct endpoint for phone devices.
+// Joins an existing session by its 6-digit pair code.
+// Works in both Cloudflare Workers (DO-backed) and local Node dev (in-memory).
 
 import { NextRequest, NextResponse } from 'next/server';
-import { sign as jwtSign } from 'jsonwebtoken';
-import sessionStore from '@/lib/session/SessionStore';
-import { formatPairCode, hashToken } from '@/lib/session/utils';
+import { adapterJoin } from '@/lib/session/adapter';
+import { formatPairCode } from '@/lib/session/utils';
 import rateLimiter from '@/lib/rate-limiter';
-
-function getSessionSecret(): string {
-  return process.env.SESSION_SECRET ?? 'dev-secret-change-in-production-32c';
-}
 
 function getClientIp(req: NextRequest): string {
   const forwarded = req.headers.get('x-forwarded-for');
@@ -21,7 +16,6 @@ function getClientIp(req: NextRequest): string {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const ip = getClientIp(req);
 
-  // Rate limit by IP: 20 join attempts per minute
   if (!rateLimiter.check(ip)) {
     return NextResponse.json(
       { error: 'Too many requests. Please wait before trying again.' },
@@ -29,7 +23,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Parse body
   let body: { pairCode?: string } = {};
   try {
     const text = await req.text();
@@ -39,16 +32,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const rawCode = typeof body.pairCode === 'string' ? body.pairCode.replace(/\s/g, '') : '';
-
   if (!rawCode || !/^\d{6}$/.test(rawCode)) {
-    return NextResponse.json(
-      { error: 'pairCode must be a 6-digit number.' },
-      { status: 400 },
-    );
+    return NextResponse.json({ error: 'pairCode must be a 6-digit number.' }, { status: 400 });
   }
 
-  // Look up session by pair code
-  const session = sessionStore.getByPairCode(rawCode);
+  const session = await adapterJoin({ pairCode: rawCode, ipAddress: ip });
   if (!session) {
     return NextResponse.json(
       { error: 'Session not found. The code may be incorrect or the session may have expired.' },
@@ -56,42 +44,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  if (session.status === 'destroyed') {
-    return NextResponse.json(
-      { error: 'This session has been destroyed.' },
-      { status: 410 },
-    );
-  }
-
-  // Calculate remaining duration from session expiry
-  const nowMs = Date.now();
-  const remainingMs = session.expiresAt.getTime() - nowMs;
-  if (remainingMs <= 0) {
-    return NextResponse.json(
-      { error: 'Session has expired.' },
-      { status: 410 },
-    );
-  }
-  const remainingMinutes = Math.ceil(remainingMs / 60_000);
-
-  // Issue a phone-role JWT for the existing session
-  const token = jwtSign(
-    { sessionId: session.id, role: 'phone' },
-    getSessionSecret(),
-    { expiresIn: `${remainingMinutes}m` },
-  );
-
-  // Update phone token hash so the phone can authenticate over WebSocket.
-  // Store separately so the PC's tokenHash remains valid.
-  sessionStore.update(session.id, { phoneTokenHash: hashToken(token) });
-
   return NextResponse.json({
     sessionId: session.id,
     pairCode: session.pairCode,
     pairCodeFormatted: formatPairCode(session.pairCode),
     qrDataUrl: '',
-    token,
-    expiresAt: session.expiresAt.toISOString(),
+    token: session.token,
+    expiresAt: session.expiresAt,
     joinUrl: '',
   });
 }

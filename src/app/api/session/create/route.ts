@@ -1,24 +1,18 @@
 // POST /api/session/create
 // Creates a new temporary session. Returns sessionId, pairCode, QR code, and JWT.
-// No authentication required — this is the entry point.
+// Works in both Cloudflare Workers (DO-backed) and local Node dev (in-memory).
 
 import { NextRequest, NextResponse } from 'next/server';
-import { sign as jwtSign } from 'jsonwebtoken';
 import QRCode from 'qrcode';
-import sessionStore from '@/lib/session/SessionStore';
-import { formatPairCode, hashToken } from '@/lib/session/utils';
+import { adapterCreate } from '@/lib/session/adapter';
 import rateLimiter from '@/lib/rate-limiter';
 
-function getSessionSecret(): string {
-  return process.env.SESSION_SECRET ?? 'dev-secret-change-in-production-32c';
-}
 function getAppUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
 }
 function getMaxSessionMinutes(): number {
   return parseInt(process.env.MAX_SESSION_MINUTES ?? '60', 10);
 }
-
 function getClientIp(req: NextRequest): string {
   const forwarded = req.headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0].trim();
@@ -28,7 +22,6 @@ function getClientIp(req: NextRequest): string {
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const ip = getClientIp(req);
 
-  // Rate limit by IP: 20 sessions per minute
   if (!rateLimiter.check(ip)) {
     return NextResponse.json(
       { error: 'Too many requests. Please wait before creating another session.' },
@@ -36,7 +29,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Parse body
   let body: { durationMinutes?: number; role?: string } = {};
   try {
     const text = await req.text();
@@ -46,9 +38,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const durationMinutes = body.durationMinutes ?? 30;
-
-  // Validate duration
   const maxSessionMinutes = getMaxSessionMinutes();
+
   if (
     typeof durationMinutes !== 'number' ||
     !Number.isFinite(durationMinutes) ||
@@ -61,40 +52,31 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Validate role (optional — used in token payload)
-  const role = (body.role as 'pc' | 'phone') ?? 'pc';
-  if (role !== 'pc' && role !== 'phone') {
+  // Validate role if provided
+  const role = (body as { role?: string }).role;
+  if (role !== undefined && role !== 'pc' && role !== 'phone') {
     return NextResponse.json({ error: 'role must be "pc" or "phone".' }, { status: 400 });
   }
 
-  // Create session
-  const session = sessionStore.create(ip, durationMinutes);
+  // Create session via adapter (DO on CF, in-memory on Node)
+  const session = await adapterCreate({ ipAddress: ip, durationMinutes });
 
-  // Sign JWT: { sessionId, role, iat }
-  const token = jwtSign({ sessionId: session.id, role }, getSessionSecret(), {
-    expiresIn: `${durationMinutes}m`,
-  });
-
-  // Store token hash in session
-  sessionStore.update(session.id, { tokenHash: hashToken(token) });
-
-  // Generate QR code for the join URL
+  // Generate QR code
   const joinUrl = `${getAppUrl()}/join/${session.pairCode}`;
   let qrDataUrl = '';
   try {
     qrDataUrl = await QRCode.toDataURL(joinUrl, { errorCorrectionLevel: 'M', margin: 2 });
   } catch {
-    // QR generation failure is non-fatal — return empty string
     qrDataUrl = '';
   }
 
   return NextResponse.json({
     sessionId: session.id,
     pairCode: session.pairCode,
-    pairCodeFormatted: formatPairCode(session.pairCode),
+    pairCodeFormatted: session.pairCodeFormatted,
     qrDataUrl,
-    token,
-    expiresAt: session.expiresAt.toISOString(),
+    token: session.token,
+    expiresAt: session.expiresAt,
     joinUrl,
   });
 }

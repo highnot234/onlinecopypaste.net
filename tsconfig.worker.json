@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": ["@cloudflare/workers-types"],
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/do/**/*.ts",
+    "src/worker.ts",
+    "src/lib/do/**/*.ts",
+    "src/lib/session/adapter.ts",
+    "src/lib/session/utils.ts",
+    "src/types/**/*.ts",
+    "open-next.config.ts"
+  ],
+  "exclude": ["node_modules", "src/app", "src/components", "src/hooks"]
+}

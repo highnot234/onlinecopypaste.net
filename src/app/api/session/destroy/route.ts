@@ -1,14 +1,9 @@
 // POST /api/session/destroy
 // Destroys a session after verifying the JWT.
-// The caller must provide a valid Authorization: Bearer <token> header.
+// Works in both Cloudflare Workers (DO-backed) and local Node dev (in-memory).
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verify as jwtVerify } from 'jsonwebtoken';
-import sessionStore from '@/lib/session/SessionStore';
-
-function getSessionSecret(): string {
-  return process.env.SESSION_SECRET ?? 'dev-secret-change-in-production-32c';
-}
+import { adapterGet, adapterDestroy, adapterVerifyToken } from '@/lib/session/adapter';
 
 function getToken(req: NextRequest): string | null {
   const auth = req.headers.get('authorization');
@@ -25,7 +20,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // Parse body
   let body: { sessionId?: string } = {};
   try {
     const text = await req.text();
@@ -39,30 +33,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'sessionId is required.' }, { status: 400 });
   }
 
-  // Verify JWT
-  let decoded: { sessionId: string; role: string };
-  try {
-    decoded = jwtVerify(token, getSessionSecret()) as { sessionId: string; role: string };
-  } catch {
+  const decoded = await adapterVerifyToken(token);
+  if (!decoded) {
     return NextResponse.json({ error: 'Invalid or expired token.' }, { status: 401 });
   }
-
-  // Token must match the requested session
   if (decoded.sessionId !== sessionId) {
-    return NextResponse.json(
-      { error: 'Token does not match the requested session.' },
-      { status: 403 },
-    );
+    return NextResponse.json({ error: 'Token does not match the requested session.' }, { status: 403 });
   }
 
-  // Look up session
-  const session = sessionStore.get(sessionId);
+  const session = await adapterGet(sessionId);
   if (!session) {
     return NextResponse.json({ error: 'Session not found.' }, { status: 404 });
   }
 
-  // Destroy
-  sessionStore.destroy(sessionId);
-
+  await adapterDestroy(sessionId);
   return NextResponse.json({ destroyed: true });
 }
