@@ -7,8 +7,16 @@ import QRCode from 'qrcode';
 import { adapterCreate } from '@/lib/session/adapter';
 import rateLimiter from '@/lib/rate-limiter';
 
-function getAppUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+/**
+ * Derive the app base URL from the incoming request.
+ * Using the request URL is the only correct approach:
+ * - Local dev  → http://localhost:3000
+ * - workers.dev → https://onlinecopypaste.kumarrohan2424.workers.dev
+ * - Custom domain → https://onlinecopypaste.net
+ * No hard-coding, no env-var dependency.
+ */
+function getAppUrl(req: NextRequest): string {
+  return new URL(req.url).origin;
 }
 function getMaxSessionMinutes(): number {
   return parseInt(process.env.MAX_SESSION_MINUTES ?? '60', 10);
@@ -61,8 +69,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // Create session via adapter (DO on CF, in-memory on Node)
   const session = await adapterCreate({ ipAddress: ip, durationMinutes });
 
-  // Generate QR code
-  const joinUrl = `${getAppUrl()}/join/${session.pairCode}`;
+  // Generate QR code — URL uses the same origin the browser hit
+  const joinUrl = `${getAppUrl(req)}/join/${session.pairCode}`;
   let qrDataUrl = '';
   try {
     qrDataUrl = await QRCode.toDataURL(joinUrl, { errorCorrectionLevel: 'M', margin: 2 });
