@@ -30,7 +30,7 @@ export interface DOSessionRecord {
 }
 
 async function doFetch(path: string, init?: RequestInit): Promise<Response> {
-  const ctx = await getCloudflareContext<{ SIGNALING_ROOM: { idFromName(name: string): unknown; get(id: unknown): { fetch(r: Request): Promise<Response> } } }>();
+  const ctx = await getCloudflareContext();
   const ns = ctx.env.SIGNALING_ROOM;
   const doId = ns.idFromName('global');
   const stub = ns.get(doId);
