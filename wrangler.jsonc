@@ -56,5 +56,16 @@
     "NEXT_PUBLIC_WS_URL": "wss://onlinecopypaste.net/ws",
     "MAX_SESSION_MINUTES": "60",
     "MAX_FILE_SIZE_MB": "100"
-  }
+  },
+
+  // Keep workers.dev enabled so the Worker is reachable at
+  // https://onlinecopypaste.kumarrohan2424.workers.dev
+  // To add onlinecopypaste.net as a custom domain:
+  //   1. Add onlinecopypaste.net to Cloudflare (change nameservers)
+  //   2. Once DNS is proxied (orange cloud), uncomment and deploy:
+  //      "routes": [
+  //        { "pattern": "onlinecopypaste.net", "custom_domain": true },
+  //        { "pattern": "www.onlinecopypaste.net", "custom_domain": true }
+  //      ]
+  "workers_dev": true
 }
