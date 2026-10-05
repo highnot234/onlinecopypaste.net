@@ -1,6 +1,24 @@
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
 import './globals.css';
+
+/**
+ * WHY next/script IS NOT USED IN THIS FILE:
+ *
+ * next/script (Next.js 14) imports next/dist/client/head-manager.js at the
+ * module level. When layout.tsx imports next/script — even conditionally —
+ * webpack includes head-manager.js in the layout chunk. head-manager.js runs
+ * on the client during hydration, finds no Pages Router <Head> title element
+ * (App Router uses the Metadata API instead), and executes:
+ *
+ *   document.title = ""    ← clears the server-rendered title
+ *
+ * React then detects a mismatch between the server HTML title and the now-empty
+ * DOM title node, throwing hydration error #418.
+ *
+ * Fix: use plain HTML <script> elements for third-party scripts. These are
+ * server-rendered as static HTML and do NOT import head-manager.js. Behaviour
+ * in production is identical — the scripts load after the page with async/defer.
+ */
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 const ADSENSE_ID = process.env.NEXT_PUBLIC_ADSENSE_ID;
@@ -54,35 +72,38 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <head>
-        {/* Google AdSense */}
-        {ADSENSE_ID && (
-          <Script
-            async
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_ID}`}
-            crossOrigin="anonymous"
-            strategy="afterInteractive"
-          />
-        )}
-      </head>
       <body className="min-h-screen font-sans bg-[#0f172a] text-slate-100">
         {children}
 
-        {/* Google Analytics */}
+        {/* Google AdSense — plain <script> avoids head-manager.js import */}
+        {ADSENSE_ID && (
+          // eslint-disable-next-line @next/next/no-sync-scripts
+          <script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_ID}`}
+            crossOrigin="anonymous"
+          />
+        )}
+
+        {/* Google Analytics — plain <script> tags, no next/script dependency */}
         {GA_ID && (
           <>
-            <Script
+            {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+            <script
+              async
               src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-              strategy="afterInteractive"
             />
-            <Script id="ga-init" strategy="afterInteractive">
-              {`
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                gtag('js', new Date());
-                gtag('config', '${GA_ID}');
-              `}
-            </Script>
+            <script
+              id="ga-init"
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${GA_ID}');
+                `,
+              }}
+            />
           </>
         )}
       </body>
