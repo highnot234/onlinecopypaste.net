@@ -19,6 +19,7 @@ export interface SessionData {
 export interface UseSessionResult {
   session: SessionData | null;
   isLoading: boolean;
+  isHydrated: boolean;
   error: string | null;
   sessionStatus: SessionStatus | null;
   createSession: (durationMinutes?: number) => Promise<void>;
@@ -85,6 +86,7 @@ export function useSession(
 ): UseSessionResult {
   const [session, setSession] = useState<SessionData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isHydrated, setIsHydrated] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(null);
 
@@ -98,6 +100,10 @@ export function useSession(
       setSession(restored);
       setSessionStatus('waiting');
     }
+    // Signal that the storage restore attempt is complete — regardless of
+    // whether a session was found. Workspace waits for this before deciding
+    // to redirect, preventing a false "no session" redirect on first render.
+    setIsHydrated(true);
     return () => {
       mountedRef.current = false;
     };
@@ -259,6 +265,7 @@ export function useSession(
   return {
     session,
     isLoading,
+    isHydrated,
     error,
     sessionStatus,
     createSession,

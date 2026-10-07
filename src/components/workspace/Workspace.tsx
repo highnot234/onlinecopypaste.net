@@ -70,18 +70,21 @@ export default function Workspace() {
     images: [],
   });
 
-  const { session } = useSession();
+  const { session, isHydrated } = useSession();
 
   // Read sessionId and token from sessionStorage (via useSession) — never from URL
   const sessionId = session?.sessionId ?? '';
   const token = session?.token ?? '';
 
-  // Redirect to home if no session in storage
+  // Redirect to home only after hydration is complete and session is confirmed absent.
+  // Without this guard, the redirect fires on the first render (before sessionStorage
+  // is read), kicking the phone user back to the home page immediately after joining.
   useEffect(() => {
+    if (!isHydrated) return;        // still restoring — do nothing yet
     if (!sessionId || !token) {
       router.push('/');
     }
-  }, [sessionId, token, router]);
+  }, [isHydrated, sessionId, token, router]);
 
   const { isConnected, isPaired, reconnecting, send, sendFile, onMessage } = useWebRTC({
     sessionId,
@@ -217,6 +220,10 @@ export default function Workspace() {
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
+
+  // While sessionStorage is still being restored, show nothing (avoids flicker
+  // and prevents the redirect effect from firing prematurely).
+  if (!isHydrated) return null;
 
   if (!sessionId || !token) return null;
 
