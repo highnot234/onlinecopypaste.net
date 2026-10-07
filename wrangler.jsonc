@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
 
   // Worker name — must match the Cloudflare dashboard / custom domain route
-  "name": "onlinecopypaste",
+  "name": "onlinecopypaste-net",
 
   // Entry point is the OpenNext-generated worker bundle.
   // opennextjs-cloudflare build produces .open-next/worker.js which
@@ -26,7 +26,7 @@
   "services": [
     {
       "binding": "WORKER_SELF_REFERENCE",
-      "service": "onlinecopypaste"
+      "service": "onlinecopypaste-net"
     }
   ],
 
