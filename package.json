@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "next lint",
-    "cf:build": "opennextjs-cloudflare build && npx esbuild src/do/SignalingRoom.ts --bundle --format=esm --platform=browser --external:node:crypto --conditions=worker --outfile=.open-next/signaling-room.js && node scripts/patch-worker.mjs",
+    "cf:build": "npm run cf:typegen && opennextjs-cloudflare build && npx esbuild src/do/SignalingRoom.ts --bundle --format=esm --platform=browser --external:node:crypto --conditions=worker --outfile=.open-next/signaling-room.js && node scripts/patch-worker.mjs",
     "cf:preview": "opennextjs-cloudflare preview",
     "cf:deploy": "npm run cf:build && npx wrangler deploy",
     "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
