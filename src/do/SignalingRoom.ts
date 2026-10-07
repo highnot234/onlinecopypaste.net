@@ -250,6 +250,57 @@ export class SignalingRoom extends DurableObjectBaseClass {
   // Internal HTTP API handlers
   // -------------------------------------------------------------------------
 
+  private sessionKey(id: string): string {
+    return `session:${id}`;
+  }
+
+  private pairCodeKey(code: string): string {
+    return `pair:${code}`;
+  }
+
+  private async saveSession(record: SessionRecord): Promise<void> {
+    await this._state.storage.put(this.sessionKey(record.id), record);
+    await this._state.storage.put(this.pairCodeKey(record.pairCode), record.id);
+    this.sessions.set(record.id, record);
+    this.pairCodes.set(record.pairCode, record.id);
+  }
+
+  private async loadSession(id: string): Promise<SessionRecord | undefined> {
+    const cached = this.sessions.get(id);
+    if (cached) return cached;
+
+    const record = await this._state.storage.get<SessionRecord>(this.sessionKey(id));
+    if (record) {
+      this.sessions.set(id, record);
+      this.pairCodes.set(record.pairCode, id);
+    }
+    return record;
+  }
+
+  private async loadSessionByPairCode(code: string): Promise<SessionRecord | undefined> {
+    const normalized = code.replace(/\\s/g, "");
+    const cachedId = this.pairCodes.get(normalized);
+
+    if (cachedId) {
+      return this.loadSession(cachedId);
+    }
+
+    const sessionId = await this._state.storage.get<string>(
+      this.pairCodeKey(normalized)
+    );
+
+    if (!sessionId) return undefined;
+
+    return this.loadSession(sessionId);
+  }
+
+  private async deleteSession(record: SessionRecord): Promise<void> {
+    await this._state.storage.delete(this.sessionKey(record.id));
+    await this._state.storage.delete(this.pairCodeKey(record.pairCode));
+    this.sessions.delete(record.id);
+    this.pairCodes.delete(record.pairCode);
+  }
+
   private async apiCreate(request: Request): Promise<Response> {
     const body = (await request.json()) as {
       ipAddress: string;
@@ -278,8 +329,7 @@ export class SignalingRoom extends DurableObjectBaseClass {
       deviceCount: 0,
     };
 
-    this.sessions.set(id, record);
-    this.pairCodes.set(pairCode, id);
+    await this.saveSession(record);
 
     return jsonOk({
       id,
@@ -299,13 +349,14 @@ export class SignalingRoom extends DurableObjectBaseClass {
     const body = (await request.json()) as { pairCode: string; ipAddress: string };
     const rawCode = (body.pairCode ?? '').replace(/\s/g, '');
 
-    const sessionId = this.pairCodes.get(rawCode);
-    if (!sessionId) return jsonErr({ error: 'Session not found.' }, 404);
+    const record = await this.loadSessionByPairCode(rawCode);
+    if (!record) return jsonErr({ error: 'Session not found.' }, 404);
 
-    const record = this.getValid(sessionId);
+    if (record.status === 'destroyed' || new Date(record.expiresAt) <= new Date()) {
+      await this.deleteSession(record);
+      return jsonErr({ error: 'Session not found or expired.' }, 404);
+    }
     if (!record) return jsonErr({ error: 'Session not found or expired.' }, 404);
-    if (record.status === 'destroyed') return jsonErr({ error: 'Session destroyed.' }, 410);
-
     const nowMs = Date.now();
     const remainingMs = new Date(record.expiresAt).getTime() - nowMs;
     if (remainingMs <= 0) return jsonErr({ error: 'Session expired.' }, 410);
@@ -318,32 +369,45 @@ export class SignalingRoom extends DurableObjectBaseClass {
     );
 
     record.phoneTokenHash = hashToken(token);
+    await this.saveSession(record);
 
     return jsonOk({ ...this.safeRecord(record), token });
   }
 
-  private apiGet(url: URL): Response {
+  private async apiGet(url: URL): Promise<Response> {
     const sessionId = url.searchParams.get('sessionId') ?? '';
-    const record = this.getValid(sessionId);
+    const record = await this.loadSession(sessionId);
     if (!record) return jsonErr({ error: 'Session not found.' }, 404);
+
+    if (record.status === 'destroyed' || new Date(record.expiresAt) <= new Date()) {
+      await this.deleteSession(record);
+      return jsonErr({ error: 'Session not found.' }, 404);
+    }
+
     return jsonOk(this.safeRecord(record));
   }
 
-  private apiGetByPairCode(url: URL): Response {
+  private async apiGetByPairCode(url: URL): Promise<Response> {
     const pairCode = url.searchParams.get('pairCode') ?? '';
-    const sessionId = this.pairCodes.get(pairCode);
-    if (!sessionId) return jsonErr({ error: 'Session not found.' }, 404);
-    const record = this.getValid(sessionId);
+    const record = await this.loadSessionByPairCode(pairCode);
+
     if (!record) return jsonErr({ error: 'Session not found.' }, 404);
+
+    if (record.status === 'destroyed' || new Date(record.expiresAt) <= new Date()) {
+      await this.deleteSession(record);
+      return jsonErr({ error: 'Session not found.' }, 404);
+    }
+
     return jsonOk(this.safeRecord(record));
   }
 
   private async apiUpdate(request: Request): Promise<Response> {
     const body = (await request.json()) as { sessionId: string } & Partial<SessionRecord>;
     const { sessionId, ...patch } = body;
-    const record = this.sessions.get(sessionId);
+    const record = await this.loadSession(sessionId);
     if (!record) return jsonErr({ error: 'Session not found.' }, 404);
     Object.assign(record, patch);
+    await this.saveSession(record);
     return jsonOk({ ok: true });
   }
 
@@ -456,7 +520,7 @@ export class SignalingRoom extends DurableObjectBaseClass {
       return;
     }
 
-    const record = this.getValid(sessionId);
+    const record = await this.loadSession(sessionId);
     if (!record) {
       sendWs(ws, { type: 'error', sessionId, payload: { code: 'SESSION_NOT_FOUND', message: 'Session not found or expired.' } });
       return;
@@ -500,6 +564,9 @@ export class SignalingRoom extends DurableObjectBaseClass {
     peerMap[role] = ws;
     record.deviceCount = Object.keys(peerMap).length;
 
+    // Persist current device count
+    await this.saveSession(record);
+
     // Attach metadata for future message routing
     ws.serializeAttachment({ sessionId, role } satisfies WsAttachment);
 
@@ -509,11 +576,13 @@ export class SignalingRoom extends DurableObjectBaseClass {
     if (peerWs) {
       // Both peers connected — go active
       record.status = 'active';
+      await this.saveSession(record);
       sendWs(ws,     { type: 'paired', sessionId, payload: { role, peerRole: otherRole } });
       sendWs(peerWs, { type: 'paired', sessionId, payload: { role: otherRole, peerRole: role } });
     } else {
       // First device
       record.status = 'paired';
+      await this.saveSession(record);
     }
   }
 
@@ -553,7 +622,10 @@ export class SignalingRoom extends DurableObjectBaseClass {
     delete peerMap[role];
 
     const record = this.sessions.get(sessionId);
-    if (record) record.deviceCount = Object.keys(peerMap).length;
+    if (record) {
+      record.deviceCount = Object.keys(peerMap).length;
+      void this.saveSession(record);
+    }
 
     // Notify remaining peer
     const otherRole: PeerRole = role === 'pc' ? 'phone' : 'pc';
@@ -564,7 +636,10 @@ export class SignalingRoom extends DurableObjectBaseClass {
 
     if (Object.keys(peerMap).length === 0) {
       this.peers.delete(sessionId);
-      if (record) record.status = 'waiting';
+      if (record) {
+        record.status = 'waiting';
+        void this.saveSession(record);
+      }
     }
   }
 
@@ -591,8 +666,7 @@ export class SignalingRoom extends DurableObjectBaseClass {
 
     const record = this.sessions.get(sessionId);
     if (record) {
-      this.pairCodes.delete(record.pairCode);
-      this.sessions.delete(sessionId);
+      void this.deleteSession(record);
     }
   }
 
