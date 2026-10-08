@@ -278,7 +278,7 @@ export class SignalingRoom extends DurableObjectBaseClass {
   }
 
   private async loadSessionByPairCode(code: string): Promise<SessionRecord | undefined> {
-    const normalized = code.replace(/\\s/g, "");
+    const normalized = code.replace(/\s/g, "");
     const cachedId = this.pairCodes.get(normalized);
 
     if (cachedId) {

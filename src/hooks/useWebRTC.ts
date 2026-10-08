@@ -375,6 +375,14 @@ export function useWebRTC({
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
+    // Do not attempt to connect if we don't have valid session credentials yet.
+    // On the phone flow, useSession restores from sessionStorage asynchronously,
+    // so sessionId/token may be empty on the first render. Connecting with empty
+    // credentials causes the signaling server to reject the join, and the WS
+    // closes/retries in a loop with the wrong (empty) values because this effect
+    // has already closed over them.
+    if (!sessionId || !token) return;
+
     mountedRef.current = true;
 
     connectWebSocket();
@@ -403,7 +411,7 @@ export function useWebRTC({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sessionId, token]);
 
   // ---------------------------------------------------------------------------
   // Public API
